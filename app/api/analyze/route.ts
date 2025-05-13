@@ -14,6 +14,13 @@ type TextResponse = {
   grammarIssues: string;
 };
 
+type ClaudeContent = {
+  formatted?: string;
+  tone?: string;
+  clarity?: string;
+  grammarIssues?: string;
+};
+
 const anthropicClient = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY || "",
 });
@@ -78,7 +85,7 @@ Provide your analysis in JSON format with these exact keys:
 ];
 
 // System prompt
-const systemPrompt = `You are an expert AI assistant for Omkar. Your goal is to help him complete her tasks. These tasks include writing emails, messages, social media posts, and blog posts.
+const systemPrompt = `You are an expert AI assistant for Omkar. Your goal is to help him complete his tasks. These tasks include writing emails, messages, social media posts, and blog posts.
 
 When using the analyzeMessage tool, you MUST provide all required fields:
 - formatted: The improved version of the message
@@ -116,7 +123,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Empty or invalid response from Claude" }, { status: 500 });
     }
 
-    const content = response.content as any; // You can create a proper type here if needed
+    const content = response.content as ClaudeContent;
 
     const textResponse: TextResponse = {
       formatted: content.formatted || "",
@@ -126,13 +133,13 @@ export async function POST(request: Request) {
     };
 
     return NextResponse.json(textResponse);
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Error processing request:", error);
 
     let statusCode = 500;
     let errorMessage = "Internal server error";
 
-    if (typeof error.message === "string") {
+    if (error instanceof Error && typeof error.message === "string") {
       if (error.message.includes("rate limit")) {
         statusCode = 429;
         errorMessage = "Rate limit exceeded";
@@ -148,7 +155,7 @@ export async function POST(request: Request) {
     return NextResponse.json(
       {
         error: errorMessage,
-        details: error.message || "Unknown error",
+        details: error instanceof Error ? error.message : "Unknown error",
       },
       { status: statusCode }
     );
