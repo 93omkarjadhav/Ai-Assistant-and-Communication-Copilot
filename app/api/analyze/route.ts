@@ -1,12 +1,11 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { NextResponse } from "next/server";
+import type { Tool } from "@anthropic-ai/sdk/resources/messages";
 
 // Define types for request data
 type RequestData = {
   message: string;
 };
-
-
 
 type TextResponse = {
   formatted: string;
@@ -15,19 +14,12 @@ type TextResponse = {
   grammarIssues: string;
 };
 
-// Define ToolResponse for the tools being used
-type ToolResponse = {
-  name: string;
-  description: string;
-  input_schema: object;
-};
-
 const anthropicClient = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY || "",
 });
 
-// Define the available tools
-const tools: ToolResponse[] = [
+// Define the available tools using Anthropic's Tool type
+const tools: Tool[] = [
   {
     name: "analyzeMessage",
     description: `Analyze the given message and provide improvements in the following areas:
@@ -85,7 +77,7 @@ Provide your analysis in JSON format with these exact keys:
   },
 ];
 
-// System prompt that defines the AI assistant's behavior
+// System prompt
 const systemPrompt = `You are an expert AI assistant for Ankita. Your goal is to help her complete her tasks. These tasks include writing emails, messages, social media posts, and blog posts.
 
 When using the analyzeMessage tool, you MUST provide all required fields:
@@ -98,96 +90,65 @@ Do not skip any of these fields when using the analyzeMessage tool.`;
 
 export async function POST(request: Request) {
   try {
-    // Validate request data
     const data = (await request.json()) as Partial<RequestData>;
 
     if (!data.message) {
-      return NextResponse.json(
-        { error: "Message is required" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Message is required" }, { status: 400 });
     }
 
-    // Check if API key is configured
     if (!process.env.ANTHROPIC_API_KEY) {
       console.error("Missing Anthropic API key");
-      return NextResponse.json(
-        { error: "Server configuration error" },
-        { status: 500 }
-      );
+      return NextResponse.json({ error: "Server configuration error" }, { status: 500 });
     }
 
-    // Call Anthropic API
     const response = await anthropicClient.messages.create({
       model: "claude-3-opus-20240229",
       max_tokens: 1000,
       temperature: 0.7,
       system: systemPrompt,
-      messages: [
-        {
-          role: "user",
-          content: data.message,
-        },
-      ],
+      messages: [{ role: "user", content: data.message }],
       tools,
     });
 
     console.log("content", response.content);
 
-    // Process Claude's response
-    if (!response.content || response.content.length === 0) {
-      return NextResponse.json(
-        { error: "Empty response from Claude" },
-        { status: 500 }
-      );
+    if (!response.content || typeof response.content !== "object") {
+      return NextResponse.json({ error: "Empty or invalid response from Claude" }, { status: 500 });
     }
 
-    // Assuming response.content is the formatted response for the text analysis
+    const content = response.content as any; // You can create a proper type here if needed
+
     const textResponse: TextResponse = {
-      formatted: response.content.formatted,
-      tone: response.content.tone,
-      clarity: response.content.clarity,
-      grammarIssues: response.content.grammarIssues,
+      formatted: content.formatted || "",
+      tone: content.tone || "",
+      clarity: content.clarity || "",
+      grammarIssues: content.grammarIssues || "",
     };
 
     return NextResponse.json(textResponse);
-  } catch (error) {
-    // Enhanced error handling
+  } catch (error: any) {
     console.error("Error processing request:", error);
 
-    // Determine appropriate status code based on error
     let statusCode = 500;
     let errorMessage = "Internal server error";
 
-    if (error instanceof Error) {
-      // Check for specific error types
-      if (
-        error.message.includes("rate limit") ||
-        error.message.includes("quota")
-      ) {
+    if (typeof error.message === "string") {
+      if (error.message.includes("rate limit")) {
         statusCode = 429;
         errorMessage = "Rate limit exceeded";
-      } else if (
-        error.message.includes("unauthorized") ||
-        error.message.includes("authentication")
-      ) {
+      } else if (error.message.includes("unauthorized")) {
         statusCode = 401;
         errorMessage = "Authentication error";
       } else if (error.message.includes("invalid request")) {
         statusCode = 400;
         errorMessage = "Invalid request";
-      } else if (error.message.includes("thinking")) {
-        // Handle case where we received internal thinking output
-        statusCode = 500;
-        errorMessage =
-          "Received internal thinking output instead of proper response";
       }
     }
 
     return NextResponse.json(
       {
         error: errorMessage,
-        details: error instanceof Error ? error.message : "Unknown error",
+        details: error.message || "Unknown error",
       },
       { status: statusCode }
     );
