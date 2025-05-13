@@ -59,7 +59,7 @@ export default function Threads({
         Past Conversations
       </h2>
       <div className="space-y-4">
-        {threads.page.map((thread: Thread) => (
+        {threads.map((thread: Thread) => (
           <Card
             key={thread._id}
             className="hover:shadow-md transition-shadow duration-200 cursor-pointer"
@@ -91,7 +91,7 @@ export default function Threads({
             </CardContent>
           </Card>
         ))}
-        {threads.page.length === 0 && (
+        {threads.length === 0 && (
           <div className="text-center text-gray-500 py-8">
             <p>No conversations yet</p>
             <p className="text-sm mt-2">
