@@ -78,7 +78,7 @@ Provide your analysis in JSON format with these exact keys:
 ];
 
 // System prompt
-const systemPrompt = `You are an expert AI assistant for Ankita. Your goal is to help her complete her tasks. These tasks include writing emails, messages, social media posts, and blog posts.
+const systemPrompt = `You are an expert AI assistant for Omkar. Your goal is to help him complete her tasks. These tasks include writing emails, messages, social media posts, and blog posts.
 
 When using the analyzeMessage tool, you MUST provide all required fields:
 - formatted: The improved version of the message
