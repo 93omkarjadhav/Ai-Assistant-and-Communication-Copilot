@@ -4,7 +4,7 @@ import { tool } from "ai";
 import { z } from "zod";
 import { components } from "./_generated/api";
 import { v } from "convex/values";
-import { action } from "./_generated/server";
+import { action, query } from "./_generated/server"; // ✅ Import query
 
 // System prompt that defines the AI assistant's behavior
 const systemPrompt = `You are an expert AI assistant for Omkar. These tasks include writing emails, messages, social media posts, and blog posts.`;
@@ -43,14 +43,14 @@ const tools = {
   }),
 };
 
-// Define an agent similarly to the AI SDK
+// Define an agent
 const aiAgentAssistant = new Agent(components.agent, {
   chat: groq("llama3-8b-8192"),
   instructions: systemPrompt,
   tools,
 });
 
-// Agent Chat functions
+// ✅ Mutation to handle assistant conversation
 export const createAgentAssistantThread = action({
   args: {
     prompt: v.string(),
@@ -62,14 +62,12 @@ export const createAgentAssistantThread = action({
     let threadId = args.threadId;
 
     if (!threadId) {
-      // Create new thread if no threadId provided
       const result = await aiAgentAssistant.createThread(ctx, {
         userId: args.userId,
       });
       thread = result.thread;
       threadId = result.threadId;
     } else {
-      // Continue existing thread
       const result = await aiAgentAssistant.continueThread(ctx, {
         threadId: threadId,
         userId: args.userId,
@@ -86,5 +84,20 @@ export const createAgentAssistantThread = action({
       text: result?.text,
       toolResults: result?.toolResults?.[0]?.result,
     };
+  },
+});
+
+// ✅ Query to get all threads for a user
+export const getThreadsByUserId = query({
+  args: {
+    userId: v.string(),
+    paginationOpts: v.optional(v.any()), // optional pagination
+  },
+  handler: async (ctx, args) => {
+    return await ctx.db
+      .query("threads")
+      .withIndex("by_user", (q) => q.eq("userId", args.userId))
+      .order("desc")
+      .collect();
   },
 });
