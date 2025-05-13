@@ -6,11 +6,7 @@ type RequestData = {
   message: string;
 };
 
-// Define response types
-type BaseResponse = {
-  error?: string;
-  details?: string;
-};
+
 
 type TextResponse = {
   formatted: string;
